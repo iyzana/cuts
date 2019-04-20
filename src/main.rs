@@ -1,10 +1,16 @@
 use clap::{App, Arg};
 use regex::Regex;
-use std::io::Error;
 use std::io::{self, BufRead};
 use std::ops::Range;
 
-fn main() -> Result<(), Error> {
+#[derive(Debug)]
+enum CutsError {
+    NonIntegerSelection(String),
+    MalformedSelection(String),
+    InputClosedUnexpectedly,
+}
+
+fn main() -> Result<(), CutsError> {
     let matches = App::new("cuts")
         .version("0.1.0")
         .author("succcubbus <jannis.kaiser2@gmail.com>")
@@ -19,7 +25,7 @@ fn main() -> Result<(), Error> {
 
     let selections = matches.value_of("SELECTION").unwrap();
     let selections = parse_selection(selections)?;
-    println!("{:?}", selections);
+    println!("parsed selections: {:?}", selections);
 
     let separator = Regex::new(r"\s+").unwrap();
 
@@ -28,19 +34,25 @@ fn main() -> Result<(), Error> {
 
     loop {
         let mut input = String::new();
-        handle.read_line(&mut input)?;
+        handle
+            .read_line(&mut input)
+            .map_err(|_| CutsError::InputClosedUnexpectedly)?;
 
         let fields = &separator.split(&input).collect::<Vec<_>>();
 
         let output = selections
             .iter()
             .flat_map(|selection| match selection {
-                Selection::Single(column) => vec![fields[to_positive(*column, fields.len())]],
-                Selection::Range(range) => {
-                    let start = to_positive(range.start, fields.len());
-                    let end = to_positive(range.end, fields.len());
-                    let true_range = Range { start, end };
-                    fields[true_range].to_vec()
+                Selection::Single(column) => vec![fields[to_concrete_index(*column, fields.len())]],
+                Selection::Range(start, end) => {
+                    let start = start
+                        .map(|index| to_concrete_index(index, fields.len()))
+                        .unwrap_or(0);
+                    let end = end
+                        .map(|index| to_concrete_index(index, fields.len()))
+                        .unwrap_or_else(|| fields.len());
+                    let concrete_range = Range { start, end };
+                    fields[concrete_range].to_vec()
                 }
             })
             .collect::<Vec<&str>>()
@@ -50,30 +62,47 @@ fn main() -> Result<(), Error> {
     }
 }
 
-fn to_positive(selection: isize, num_fields: usize) -> usize {
+fn to_concrete_index(selection: isize, num_fields: usize) -> usize {
     if selection >= 0 {
         selection as usize
     } else {
-        num_fields + selection as usize
+        (num_fields as isize + selection).max(0) as usize
     }
 }
 
 #[derive(Debug)]
 enum Selection {
     Single(isize),
-    Range(Range<isize>),
+    Range(Option<isize>, Option<isize>),
 }
 
-fn parse_selection(selection: &str) -> Result<Vec<Selection>, Error> {
-    selection
-        .split(',')
-        .map(|spec| {
-            let indicies: Vec<isize> = spec.split("..").map(|s| s.parse()).collect()?;
+fn parse_selection(selection: &str) -> Result<Vec<Selection>, CutsError> {
+    selection.split(',').map(|spec| parse_range(spec)).collect()
+}
 
-            Ok(match indicies.len() {
-                1 => Selection::Single(indicies[0]),
-                2 => Selection::Range(indicies[0]..indicies[2]),
-            })
-        })
-        .collect()
+fn parse_range(selection: &str) -> Result<Selection, CutsError> {
+    let parts = selection.split("..").collect::<Vec<_>>();
+
+    match parts[..] {
+        [index] => Ok(Selection::Single(parse_int(index)?)),
+        [start, end] => Ok(Selection::Range(
+            if start.is_empty() {
+                None
+            } else {
+                Some(parse_int(start)?)
+            },
+            if end.is_empty() {
+                None
+            } else {
+                Some(parse_int(end)?)
+            },
+        )),
+        _ => Err(CutsError::MalformedSelection(selection.to_owned())),
+    }
+}
+
+fn parse_int(string: &str) -> Result<isize, CutsError> {
+    string
+        .parse()
+        .map_err(|_| CutsError::NonIntegerSelection(string.to_owned()))
 }
