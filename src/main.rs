@@ -20,6 +20,20 @@ fn main() -> Result<(), CutsError> {
         .arg(
             Arg::with_name("SELECTION")
                 .help("Specifies the selection/ranges to print")
+                .long_help(
+                    "\
+Comma separated, zero-based indicies or ranges. Any index can be negative so
+that -1 selects the last element. Ranges are provided in the form start..end
+where start is inclusive and end is exclusive. When a range bound is ommitted
+it is assumed to be the extreme. Negative range bounds are allowed.
+
+Examples:
+  1,2,-2 # select the 2nd, 3rd and second from last field
+  1..4,7 # select fields 1 2 3 and 7
+  ..4    # select the first 4 fields
+  ..-1   # select all but the last field
+  -3..   # select the last three fields",
+                )
                 .required(true)
                 .index(1),
         )
@@ -73,8 +87,9 @@ fn main() -> Result<(), CutsError> {
 fn to_concrete_range(selection: &Selection, num_fields: usize) -> Range<usize> {
     #[allow(clippy::range_plus_one)]
     match selection {
-        Selection::Single(column) => to_concrete_index(*column, num_fields)
-            .map_or_else(|| 0..0, |index| index..index + 1),
+        Selection::Single(column) => {
+            to_concrete_index(*column, num_fields).map_or_else(|| 0..0, |index| index..index + 1)
+        }
         Selection::Range(start, end) => {
             let start = start
                 .and_then(|index| to_concrete_index(index, num_fields))
