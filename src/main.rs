@@ -74,8 +74,7 @@ fn to_concrete_range(selection: &Selection, num_fields: usize) -> Range<usize> {
     #[allow(clippy::range_plus_one)]
     match selection {
         Selection::Single(column) => to_concrete_index(*column, num_fields)
-            .map(|index| index..index + 1)
-            .unwrap_or_else(|| 0..0),
+            .map_or_else(|| 0..0, |index| index..index + 1),
         Selection::Range(start, end) => {
             let start = start
                 .and_then(|index| to_concrete_index(index, num_fields))
