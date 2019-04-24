@@ -66,7 +66,7 @@ Examples:
         )
         .get_matches();
 
-    let selections = parse_selection(matches.value_of("SELECTION").unwrap())?;
+    let selections = parse_selections(matches.value_of("SELECTION").unwrap())?;
 
     let regex = matches
         .value_of("regex_delimiter")
@@ -87,26 +87,18 @@ Examples:
     Ok(())
 }
 
-fn parse_selection(selection: &str) -> Result<Vec<Selection>, CutsError> {
-    selection.split(',').map(|spec| parse_range(spec)).collect()
+fn parse_selections(selections: &str) -> Result<Vec<Selection>, CutsError> {
+    selections.split(',').map(parse_selection).collect()
 }
 
-fn parse_range(selection: &str) -> Result<Selection, CutsError> {
+fn parse_selection(selection: &str) -> Result<Selection, CutsError> {
     let parts = selection.split("..").collect::<Vec<_>>();
 
-    match parts[..] {
+    match parts.as_slice() {
         [index] => Ok(Selection::Single(parse_int(index)?)),
         [start, end] => Ok(Selection::Range(
-            if start.is_empty() {
-                None
-            } else {
-                Some(parse_int(start)?)
-            },
-            if end.is_empty() {
-                None
-            } else {
-                Some(parse_int(end)?)
-            },
+            parse_range_bound(start)?,
+            parse_range_bound(end)?,
         )),
         _ => Err(CutsError::MalformedSelection(selection.to_owned())),
     }
@@ -116,4 +108,12 @@ fn parse_int(string: &str) -> Result<isize, CutsError> {
     string
         .parse()
         .map_err(|_| CutsError::NonIntegerSelection(string.to_owned()))
+}
+
+fn parse_range_bound(string: &str) -> Result<Option<isize>, CutsError> {
+    Ok(if string.is_empty() {
+        None
+    } else {
+        Some(parse_int(string)?)
+    })
 }
