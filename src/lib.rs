@@ -7,12 +7,19 @@ pub struct Config {
     pub delimiter: Regex,
     pub trimmed: bool,
     pub only_delimited: bool,
+    pub selection_type: SelectionType,
 }
 
 #[derive(Debug)]
 pub enum Selection {
     Single(isize),
     Range(Option<isize>, Option<isize>),
+}
+
+pub enum SelectionType {
+    Fields,
+    Bytes,
+    Characters,
 }
 
 pub fn cuts(config: &Config) {

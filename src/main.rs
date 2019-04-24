@@ -1,6 +1,6 @@
 extern crate cuts;
 
-use crate::cuts::{cuts, Config, Selection};
+use crate::cuts::{cuts, Config, Selection, SelectionType};
 use clap::{App, Arg};
 use regex::Regex;
 use std::borrow::ToOwned;
@@ -64,6 +64,18 @@ Examples:
                 .long("only-delimited")
                 .help("Only print lines containing the delimiter at least once"),
         )
+        .arg(
+            Arg::with_name("bytes")
+                .short("b")
+                .help("Slice bytes instead of fields")
+                .group("selection_type"),
+        )
+        .arg(
+            Arg::with_name("characters")
+                .short("c")
+                .help("Slice characters instead of fields")
+                .group("selection_type"),
+        )
         .get_matches();
 
     let selections = parse_selections(matches.value_of("SELECTION").unwrap())?;
@@ -75,11 +87,20 @@ Examples:
         .unwrap_or_else(|| r"\s+".to_owned());
     let delimiter = Regex::new(&regex).map_err(|_| CutsError::InvalidDelimiter(regex))?;
 
+    let selection_type = if matches.is_present("bytes") {
+        SelectionType::Bytes
+    } else if matches.is_present("characters") {
+        SelectionType::Characters
+    } else {
+        SelectionType::Fields
+    };
+
     let config = Config {
         selections,
         delimiter,
         trimmed: !matches.is_present("no_trim"),
         only_delimited: matches.is_present("only_delimited"),
+        selection_type,
     };
 
     cuts(&config);
