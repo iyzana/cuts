@@ -1,8 +1,9 @@
+extern crate cuts;
+
+use crate::cuts::{cuts, Config, Selection};
 use clap::{App, Arg};
 use regex::Regex;
 use std::borrow::ToOwned;
-use std::io::{self, BufRead};
-use std::ops::Range;
 use std::result::Result;
 
 #[derive(Debug)]
@@ -41,82 +42,49 @@ Examples:
             Arg::with_name("string_delimiter")
                 .short("d")
                 .takes_value(true)
-                .help("use this delimiter instead of whitespace")
+                .help("Use this delimiter instead of whitespace")
                 .group("delimiter"),
         )
         .arg(
             Arg::with_name("regex_delimiter")
                 .short("D")
                 .takes_value(true)
-                .help("use this regex as the delimiter instead of whitespace")
+                .help("Use this regex as the delimiter instead of whitespace")
                 .group("delimiter"),
+        )
+        .arg(
+            Arg::with_name("no_trim")
+                .short("T")
+                .long("no-trim")
+                .help("Do not trim the lines before applying the delimiter"),
+        )
+        .arg(
+            Arg::with_name("only_delimited")
+                .short("-o")
+                .long("--only-delimited")
+                .help("Only print lines containing the delimiter at least once"),
         )
         .get_matches();
 
-    let selections = matches.value_of("SELECTION").unwrap();
-    let selections = parse_selection(selections)?;
-    println!("parsed selections: {:?}", selections);
+    let selections = parse_selection(matches.value_of("SELECTION").unwrap())?;
 
-    let separator = matches
+    let regex = matches
         .value_of("regex_delimiter")
         .map(ToOwned::to_owned)
         .or_else(|| matches.value_of("string_delimiter").map(regex::escape))
         .unwrap_or_else(|| r"\s+".to_owned());
-    let split_regex = Regex::new(&separator).map_err(|_| CutsError::InvalidDelimiter(separator))?;
+    let delimiter = Regex::new(&regex).map_err(|_| CutsError::InvalidDelimiter(regex))?;
 
-    io::stdin()
-        .lock()
-        .lines()
-        .filter_map(Result::ok) // filter out lines with invalud utf-8
-        .for_each(|line| {
-            let fields = &split_regex.split(&line).collect::<Vec<_>>();
+    let config = Config {
+        selections,
+        delimiter,
+        trimmed: !matches.is_present("no_trim"),
+        only_delimited: matches.is_present("only_delimited"),
+    };
 
-            let output = selections
-                .iter()
-                .map(|selection| to_concrete_range(selection, fields.len()))
-                .flat_map(|range| fields[range].to_vec())
-                .collect::<Vec<&str>>()
-                .join(" ");
-
-            println!("{}", output);
-        });
+    cuts(&config);
 
     Ok(())
-}
-
-fn to_concrete_range(selection: &Selection, num_fields: usize) -> Range<usize> {
-    #[allow(clippy::range_plus_one)]
-    match selection {
-        Selection::Single(column) => {
-            to_concrete_index(*column, num_fields).map_or_else(|| 0..0, |index| index..index + 1)
-        }
-        Selection::Range(start, end) => {
-            let start = start
-                .and_then(|index| to_concrete_index(index, num_fields))
-                .unwrap_or(0);
-            let end = end
-                .and_then(|index| to_concrete_index(index, num_fields))
-                .unwrap_or_else(|| num_fields);
-            start..end
-        }
-    }
-}
-
-fn to_concrete_index(selection: isize, num_fields: usize) -> Option<usize> {
-    let num_fields = num_fields as isize;
-    if selection >= 0 && selection < num_fields {
-        Some(selection as usize)
-    } else if selection < 0 && num_fields + selection >= 0 {
-        Some((num_fields + selection) as usize)
-    } else {
-        None
-    }
-}
-
-#[derive(Debug)]
-enum Selection {
-    Single(isize),
-    Range(Option<isize>, Option<isize>),
 }
 
 fn parse_selection(selection: &str) -> Result<Vec<Selection>, CutsError> {
