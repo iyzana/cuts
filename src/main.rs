@@ -60,8 +60,8 @@ Examples:
         )
         .arg(
             Arg::with_name("only_delimited")
-                .short("-o")
-                .long("--only-delimited")
+                .short("o")
+                .long("only-delimited")
                 .help("Only print lines containing the delimiter at least once"),
         )
         .get_matches();
