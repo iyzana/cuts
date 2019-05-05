@@ -1,4 +1,5 @@
 use regex::Regex;
+use std::io::StdinLock;
 use std::io::{self, BufRead};
 use std::ops::Range;
 
@@ -23,34 +24,75 @@ pub enum SelectionType {
 }
 
 pub fn cuts(config: &Config) {
-    io::stdin()
-        .lock()
-        .lines()
-        .filter_map(Result::ok) // filter out lines with invalid utf-8
-        .map(|line| {
-            if config.trimmed {
-                line.trim().to_string()
-            } else {
-                line
-            }
-        })
-        .for_each(|line| {
-            let fields = &config.delimiter.split(&line).collect::<Vec<_>>();
+    let stdin = io::stdin();
+    let items = match config.selection_type {
+        SelectionType::Fields => fields(config, stdin.lock()),
+        SelectionType::Bytes => bytes(config, stdin.lock()),
+        SelectionType::Characters => chars(config, stdin.lock()),
+    };
+    items.for_each(|elements| {
+        let output = config
+            .selections
+            .iter()
+            .map(|selection| to_concrete_range(selection, elements.len()))
+            .flat_map(|range| elements[range].to_vec())
+            .map(move |bytes| String::from_utf8_lossy(&bytes).into_owned())
+            .collect::<Vec<_>>()
+            .join(" ");
 
-            if fields.len() == 1 && config.only_delimited {
-                return;
-            }
+        println!("{}", output);
+    });
+}
 
-            let output = config
-                .selections
-                .iter()
-                .map(|selection| to_concrete_range(selection, fields.len()))
-                .flat_map(|range| fields[range].to_vec())
-                .collect::<Vec<&str>>()
-                .join(" ");
+pub fn lines<'a>(config: &'a Config, stdin: StdinLock<'a>) -> impl Iterator<Item = String> + 'a {
+    stdin.lines().filter_map(Result::ok).map(move |line| {
+        if config.trimmed {
+            line.trim().to_string()
+        } else {
+            line
+        }
+    })
+}
 
-            println!("{}", output);
-        });
+pub fn fields<'a>(
+    config: &'a Config,
+    stdin: StdinLock<'a>,
+) -> Box<dyn Iterator<Item = Vec<Vec<u8>>> + 'a> {
+    Box::new(lines(config, stdin).flat_map(move |line| {
+        let fields = config
+            .delimiter
+            .split(&line)
+            .map(ToString::to_string)
+            .map(String::into_bytes)
+            .collect::<Vec<_>>();
+
+        if fields.len() == 1 && config.only_delimited {
+            None
+        } else {
+            Some(fields)
+        }
+    }))
+}
+
+pub fn chars<'a>(
+    config: &'a Config,
+    stdin: StdinLock<'a>,
+) -> Box<dyn Iterator<Item = Vec<Vec<u8>>> + 'a> {
+    Box::new(lines(config, stdin).map(|line| {
+        line.chars()
+            .map(|c| {
+                let mut buffer = [0; 8];
+                c.encode_utf8(&mut buffer).to_string().into_bytes()
+            })
+            .collect()
+    }))
+}
+
+pub fn bytes<'a>(
+    config: &'a Config,
+    stdin: StdinLock<'a>,
+) -> Box<dyn Iterator<Item = Vec<Vec<u8>>> + 'a> {
+    Box::new(lines(config, stdin).map(|line| line.into_bytes().iter().map(|b| vec![*b]).collect()))
 }
 
 fn to_concrete_range(selection: &Selection, num_fields: usize) -> Range<usize> {
