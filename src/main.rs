@@ -20,7 +20,7 @@ fn main() -> Result<(), CutsError> {
         .about("A unix cut clone with improved field selection")
         .arg(
             Arg::with_name("SELECTION")
-                .help("Specifies the selection/ranges to print")
+                .help("Specifies the selection/ranges to print, for more information try --help")
                 .long_help(
                     "\
 Comma separated, zero-based indicies or ranges. Any index can be negative so
@@ -41,20 +41,22 @@ Examples:
         .arg(
             Arg::with_name("string_delimiter")
                 .short("d")
+                .long("delimiter")
                 .takes_value(true)
                 .help("Use this delimiter instead of whitespace")
                 .group("delimiter"),
         )
         .arg(
             Arg::with_name("regex_delimiter")
-                .short("D")
+                .short("r")
+                .long("regex")
                 .takes_value(true)
                 .help("Use this regex as the delimiter instead of whitespace")
                 .group("delimiter"),
         )
         .arg(
             Arg::with_name("no_trim")
-                .short("T")
+                .short("t")
                 .long("no-trim")
                 .help("Do not trim the lines before applying the delimiter"),
         )
@@ -67,14 +69,18 @@ Examples:
         .arg(
             Arg::with_name("bytes")
                 .short("b")
+                .long("bytes")
                 .help("Slice bytes instead of fields")
-                .group("selection_type"),
+                .group("selection_type")
+                .conflicts_with_all(&["string_delimiter", "regex_delimiter"]),
         )
         .arg(
             Arg::with_name("characters")
                 .short("c")
+                .long("chars")
                 .help("Slice characters instead of fields")
-                .group("selection_type"),
+                .group("selection_type")
+                .conflicts_with_all(&["string_delimiter", "regex_delimiter"]),
         )
         .get_matches();
 
