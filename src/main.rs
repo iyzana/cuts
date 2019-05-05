@@ -26,7 +26,8 @@ fn main() -> Result<(), CutsError> {
 Comma separated, zero-based indicies or ranges. Any index can be negative so
 that -1 selects the last element. Ranges are provided in the form start..end
 where start is inclusive and end is exclusive. When a range bound is ommitted
-it is assumed to be the extreme. Negative range bounds are allowed.
+it is assumed to be the extreme. Negative range bounds are allowed. If starting
+with a negative index, be sure to add '--' (end of options) before it.
 
 Examples:
   1,2,-2 # select the 2nd, 3rd and second from last field

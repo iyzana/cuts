@@ -11,7 +11,7 @@ cuts 0,3,1,-3 # take the 1st, 4th, 2nd fields and the 3rd from the back
 cuts 1.. # take all but first field
 cuts ..-1 # take all but last field
 cuts ..4 # take first 4 fields
-cuts -4.. # take last 4 fields
+cuts -- -4.. # take last 4 fields
 cuts 2..7 # take fields 2 through 6
 
 // flags
