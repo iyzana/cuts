@@ -15,7 +15,7 @@ By default the binary will be installed under `~/.cargo/bin/`
 
 ## Examples
 
-example input:
+example input
 
 ```
 0 1 2
@@ -44,7 +44,8 @@ $ cuts -- -1
 4
 ```
 
-you can select field ranges
+you can select field ranges  
+not specifing a range bound is equivalent to the extreme value for that line
 
 ```
 $ cuts ..-1 # everything but the last field
@@ -54,4 +55,31 @@ $ cuts ..-1 # everything but the last field
 0 1 2 3
 ```
 
-not specifing a range bound is equivalent to the extreme value for that line
+
+specifying a delimiter
+
+```
+$ cuts -d, 1
+
+
+1
+
+```
+
+you can ignore lines not containing the limiter
+
+```
+$ cuts -d, --only-delimited 1
+1
+```
+
+for more complex scenarios you can specify a regex as delimiter  
+note that `..` is an unbounded range, therefore selecting all fields
+
+```
+$ cuts -r '[12]+' ..
+0
+0
+0, ,
+0     3 4
+```
