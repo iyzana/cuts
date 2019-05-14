@@ -66,7 +66,7 @@ $ cuts -d, 1
 
 ```
 
-you can ignore lines not containing the limiter
+you can ignore lines not containing the delimiter
 
 ```
 $ cuts -d, --only-delimited 1
