@@ -101,10 +101,16 @@ Examples:
     } else {
         SelectionType::Fields
     };
+    let out_delimiter = match selection_type {
+        SelectionType::Bytes => "",
+        SelectionType::Characters => "",
+        SelectionType::Fields => " ",
+    }.to_string();
 
     let config = Config {
         selections,
         delimiter,
+        out_delimiter,
         trimmed: !matches.is_present("no_trim"),
         only_delimited: matches.is_present("only_delimited"),
         selection_type,

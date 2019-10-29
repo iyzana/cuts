@@ -2,10 +2,12 @@ use regex::Regex;
 use std::io::StdinLock;
 use std::io::{self, BufRead};
 use std::ops::Range;
+use std::io::prelude::*;
 
 pub struct Config {
     pub selections: Vec<Selection>,
     pub delimiter: Regex,
+    pub out_delimiter: String,
     pub trimmed: bool,
     pub only_delimited: bool,
     pub selection_type: SelectionType,
@@ -36,11 +38,15 @@ pub fn cuts(config: &Config) {
             .iter()
             .map(|selection| to_concrete_range(selection, elements.len()))
             .flat_map(|range| elements[range].to_vec())
-            .map(move |bytes| String::from_utf8_lossy(&bytes).into_owned())
-            .collect::<Vec<_>>()
-            .join(" ");
+            .collect::<Vec<_>>();
 
-        println!("{}", output);
+        let stdout = std::io::stdout();
+        let mut a = stdout.lock();
+        for line in output {
+            a.write_all(&line).unwrap();
+            a.write_all(config.out_delimiter.as_bytes()).unwrap();
+        }
+        a.write_all("\n".as_bytes()).unwrap();
     });
 }
 
@@ -89,10 +95,10 @@ pub fn chars<'a>(
 }
 
 pub fn bytes<'a>(
-    config: &'a Config,
+    _config: &'a Config,
     stdin: StdinLock<'a>,
 ) -> Box<dyn Iterator<Item = Vec<Vec<u8>>> + 'a> {
-    Box::new(lines(config, stdin).map(|line| line.into_bytes().iter().map(|b| vec![*b]).collect()))
+    Box::new(vec![stdin.bytes().filter_map(Result::ok).map(|b| vec![b]).collect()].into_iter())
 }
 
 fn to_concrete_range(selection: &Selection, num_fields: usize) -> Range<usize> {
